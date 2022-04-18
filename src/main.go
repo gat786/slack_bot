@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"net/url"
 	"os"
 
 	"github.com/gin-gonic/gin"
@@ -37,9 +38,28 @@ func main() {
 	})
 
 	r.POST("/slack/interactivity", func(ctx *gin.Context) {
-		ctx.JSON(200, gin.H{
-			"message": "Interactivity data accepted",
-		})
+		body, err := ctx.GetRawData()
+
+		if err == nil {
+			encoded_body, err := url.QueryUnescape(string(body)[8:])
+			log.Print(encoded_body)
+
+			if err == nil {
+				var bodyMap map[string]interface{}
+				err := json.Unmarshal([]byte(encoded_body), &bodyMap)
+
+				if err == nil {
+
+					log.Println(bodyMap)
+
+					ctx.JSON(200, gin.H{
+						"message": "Interactivity data accepted",
+					})
+				} else {
+					ctx.AbortWithStatus(500)
+				}
+			}
+		}
 	})
 
 	r.POST("/slack/commands", func(ctx *gin.Context) {
@@ -100,33 +120,25 @@ func main() {
 			)
 
 			attachment := slack.Attachment{
-				Text:       "Which beer do you want? :beer:",
+				Text:       "Which OS VM do you want? 💻",
 				Color:      "#f9a41b",
-				CallbackID: "beer",
+				CallbackID: "os",
 				Actions: []slack.AttachmentAction{
 					{
 						Name: actionSelect,
 						Type: "select",
 						Options: []slack.AttachmentActionOption{
 							{
-								Text:  "Asahi Super Dry",
-								Value: "Asahi Super Dry",
+								Text:  "Windows",
+								Value: "windows",
 							},
 							{
-								Text:  "Kirin Lager Beer",
-								Value: "Kirin Lager Beer",
+								Text:  "Linux",
+								Value: "linux",
 							},
 							{
-								Text:  "Sapporo Black Label",
-								Value: "Sapporo Black Label",
-							},
-							{
-								Text:  "Suntory Malts",
-								Value: "Suntory Malts",
-							},
-							{
-								Text:  "Yona Yona Ale",
-								Value: "Yona Yona Ale",
+								Text:  "Mac Os",
+								Value: "macOs",
 							},
 						},
 					},
@@ -141,7 +153,7 @@ func main() {
 			}
 
 			api.PostMessage("CSBJY2Z47",
-				slack.MsgOptionText("Some Text", false),
+				slack.MsgOptionText("Choose your OS for the VM", false),
 				slack.MsgOptionAttachments(attachment),
 			)
 		}
