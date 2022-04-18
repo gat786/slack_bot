@@ -87,13 +87,63 @@ func main() {
 			eventData := make(map[string]interface{})
 
 			json.Unmarshal(jsonData, &eventData)
-
+			ctx.String(200, eventData["challenge"].(string))
 		}
 
 		if eventsAPIEvent.Type == slackevents.CallbackEvent {
-			api.PostMessage("CSBJY2Z47", slack.MsgOptionText("Some Text", false), slack.MsgOptionAttachments(slack.Attachment{
-				Text: "This is some text",
-			}))
+
+			const (
+				// action is used for slack attament action.
+				actionSelect = "select"
+				actionStart  = "start"
+				actionCancel = "cancel"
+			)
+
+			attachment := slack.Attachment{
+				Text:       "Which beer do you want? :beer:",
+				Color:      "#f9a41b",
+				CallbackID: "beer",
+				Actions: []slack.AttachmentAction{
+					{
+						Name: actionSelect,
+						Type: "select",
+						Options: []slack.AttachmentActionOption{
+							{
+								Text:  "Asahi Super Dry",
+								Value: "Asahi Super Dry",
+							},
+							{
+								Text:  "Kirin Lager Beer",
+								Value: "Kirin Lager Beer",
+							},
+							{
+								Text:  "Sapporo Black Label",
+								Value: "Sapporo Black Label",
+							},
+							{
+								Text:  "Suntory Malts",
+								Value: "Suntory Malts",
+							},
+							{
+								Text:  "Yona Yona Ale",
+								Value: "Yona Yona Ale",
+							},
+						},
+					},
+
+					{
+						Name:  actionCancel,
+						Text:  "Cancel",
+						Type:  "button",
+						Style: "danger",
+					},
+				},
+			}
+
+			api.PostMessage("CSBJY2Z47",
+				slack.MsgOptionText("Some Text", false),
+				slack.MsgOptionAttachments(attachment),
+			)
 		}
 	})
 
