@@ -2,12 +2,14 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"log"
 	"os"
 
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
 	"github.com/slack-go/slack"
+	"github.com/slack-go/slack/slackevents"
 )
 
 func main() {
@@ -18,8 +20,13 @@ func main() {
 	}
 
 	slackBotToken := os.Getenv("SLACK_BOT_TOKEN")
+	slackSigningSecret := os.Getenv("SLACK_SIGNING_SECRET")
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "3000"
+	}
 
-	log.Printf("This is bot token %s \n", slackBotToken)
+	api := slack.New(slackBotToken)
 
 	r := gin.Default()
 
@@ -54,19 +61,44 @@ func main() {
 			log.Fatalln("Error getting data from body")
 		}
 
-		var eventVerificationObject EventVerification
+		sv, err := slack.NewSecretsVerifier(ctx.Request.Header, slackSigningSecret)
+		if err != nil {
+			ctx.AbortWithStatus(400)
+			return
+		}
 
-		json.Unmarshal(jsonData, &eventVerificationObject)
+		if _, err := sv.Write(jsonData); err != nil {
+			// w.WriteHeader(http.StatusInternalServerError)
+			ctx.AbortWithStatus(500)
+			return
+		}
 
-		ctx.String(200, eventVerificationObject.Challenge)
+		if err := sv.Ensure(); err != nil {
+			ctx.AbortWithStatusJSON(401, err)
+			return
+		}
+		eventsAPIEvent, err := slackevents.ParseEvent(json.RawMessage(jsonData), slackevents.OptionNoVerifyToken())
+		if err != nil {
+			ctx.AbortWithStatus(500)
+			return
+		}
+
+		if eventsAPIEvent.Type == slackevents.URLVerification {
+			eventData := make(map[string]interface{})
+
+			json.Unmarshal(jsonData, &eventData)
+
+		}
+
+		if eventsAPIEvent.Type == slackevents.CallbackEvent {
+			api.PostMessage("CSBJY2Z47", slack.MsgOptionText("Some Text", false), slack.MsgOptionAttachments(slack.Attachment{
+				Text: "This is some text",
+			}))
+		}
 	})
 
-	api := slack.New(slackBotToken)
+	portNumber := fmt.Sprintf(":%s", port)
 
-	api.PostMessage("CSBJY2Z47", slack.MsgOptionText("Some Text", false), slack.MsgOptionAttachments(slack.Attachment{
-		Text: "This is some text",
-	}))
-
-	r.Run()
+	r.Run(portNumber)
 
 }
